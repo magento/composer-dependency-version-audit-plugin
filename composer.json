@@ -20,7 +20,7 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "Magento\\ComposerDependencyVersionAuditPlugin\\": "tests/Unit/Magento/ComposerRootUpdatePlugin/"
+      "Magento\\ComposerDependencyVersionAuditPlugin\\": "tests/Unit/Magento/ComposerDependencyVersionAuditPlugin/"
     }
   }
 }
