@@ -16,7 +16,7 @@ use Composer\Plugin\Capable;
 use Composer\Plugin\PluginInterface;
 
 /**
- * Composer's entry point for the plugin, defines the command provider and Web Setup Wizard Installer's event triggers
+ * Composer's entry point for the plugin
  */
 class PluginDefinition implements PluginInterface, Capable, EventSubscriberInterface
 {
@@ -27,7 +27,22 @@ class PluginDefinition implements PluginInterface, Capable, EventSubscriberInter
      */
     public function activate(Composer $composer, IOInterface $io)
     {
-        // TODO
+        $package = $composer->getPackage()->getRequires()['']; //Get required package data
+        print_r([
+            'package-name' => $package->getTarget(),
+            'version-req' => $package->getPrettyConstraint()
+        ]);
+        foreach ($composer->getRepositoryManager()->getRepositories() as $repository) {
+            if ($repository instanceof ComposerRepository) {
+                print_r([
+                    'url' => $repository->getRepoConfig()['url'] //See what repo this is, for instance https://repo.packagist.org
+                ]);
+            }
+            $found = $repository->findPackage('', '*'); //See if the repo holds the package
+            print_r([
+                'found' => $found ? $found->getName() : null
+            ]);
+        }
     }
 
     /**
@@ -55,7 +70,7 @@ class PluginDefinition implements PluginInterface, Capable, EventSubscriberInter
     }
 
     /**
-     * When a package is installed or updated, check if the WebSetupWizard installation needs to be updated
+     * Event subscriber
      *
      * @return array
      */
