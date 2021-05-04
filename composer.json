@@ -1,7 +1,8 @@
 {
-  "type": "project",
   "name": "magento/composer-dependency-version-audit-plugin",
-  "description": "",
+  "type": "composer-plugin",
+  "description": "Validating packages through a composer plugin",
+  "version": "0.1.0",
   "license": [
     "OSL-3.0",
     "AFL-3.0"
@@ -11,11 +12,17 @@
     "composer-plugin-api": "^1.0"
   },
   "require-dev": {
-    "phpunit/phpunit": "~6.5.0"
+    "phpunit/phpunit": "^9"
+  },
+  "suggest": {
+    "magento/framework": "TBD"
+  },
+  "extra": {
+    "class": "Magento\\ComposerDependencyVersionAuditPlugin\\PluginDefinition"
   },
   "autoload": {
     "psr-4": {
-      "Magento\\ComposerDependencyVersionAuditPlugin\\": "src/Magento/ComposerDependencyVersionAuditPlugin/"
+      "Magento\\ComposerDependencyVersionAuditPlugin\\": "src/"
     }
   },
   "autoload-dev": {
