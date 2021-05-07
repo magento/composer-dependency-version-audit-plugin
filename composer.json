@@ -14,11 +14,8 @@
   "require-dev": {
     "phpunit/phpunit": "^9"
   },
-  "suggest": {
-    "magento/framework": "TBD"
-  },
   "extra": {
-    "class": "Magento\\ComposerDependencyVersionAuditPlugin\\PluginDefinition"
+    "class": "Plugin"
   },
   "autoload": {
     "psr-4": {
@@ -27,7 +24,7 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "Magento\\ComposerDependencyVersionAuditPlugin\\": "tests/Unit/Magento/ComposerDependencyVersionAuditPlugin/"
+      "Magento\\ComposerDependencyVersionAuditPlugin\\": "tests/Integration/Magento/ComposerDependencyVersionAuditPlugin/"
     }
   }
 }

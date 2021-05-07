@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright © 2016 Magento. All rights reserved.
+ * Copyright © 2021 Magento. All rights reserved.
  * See COPYING.txt for license details.
  */
 declare(strict_types=1);
@@ -8,12 +8,15 @@ declare(strict_types=1);
 namespace Magento\ComposerDependencyVersionAuditPlugin;
 
 use Composer\Composer;
+use Composer\DependencyResolver\Operation\OperationInterface;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer;
 use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Repository\ComposerRepository;
+use Composer\Repository\RepositoryInterface;
+use Exception;
 
 /**
  * Composer's entry point for the plugin
@@ -36,7 +39,7 @@ class PluginDefinition implements PluginInterface, EventSubscriberInterface
      */
     public function activate(Composer $composer, IOInterface $io)
     {
-        // Method must exist
+        // Declaration must exist
     }
 
     /**
@@ -44,7 +47,7 @@ class PluginDefinition implements PluginInterface, EventSubscriberInterface
      */
     public function deactivate(Composer $composer, IOInterface $io)
     {
-        // Method must exist
+        // Declaration must exist
     }
 
     /**
@@ -52,7 +55,7 @@ class PluginDefinition implements PluginInterface, EventSubscriberInterface
      */
     public function uninstall(Composer $composer, IOInterface $io)
     {
-        // method must exist
+        // Declaration must exist
     }
 
     /**
@@ -63,7 +66,8 @@ class PluginDefinition implements PluginInterface, EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [Installer\PackageEvents::PRE_PACKAGE_INSTALL => 'packageUpdate',
-            Installer\PackageEvents::PRE_PACKAGE_UPDATE => 'packageUpdate'];
+            Installer\PackageEvents::PRE_PACKAGE_UPDATE => 'packageUpdate'
+        ];
     }
 
     /**
@@ -71,41 +75,47 @@ class PluginDefinition implements PluginInterface, EventSubscriberInterface
      *
      * @param PackageEvent $event
      * @return void
+     * @throws Exception
      */
     public function packageUpdate(PackageEvent $event): void
     {
+        /** @var  OperationInterface */
         $operation = $event->getOperation();
         $composer = $event->getComposer();
 
         /** @var PackageInterface $package  */
-
         $package = method_exists($operation, 'getPackage')
             ? $operation->getPackage()
             : $operation->getInitialPackage();
 
         $packageName = $package->getName();
-        $foundInInternalRepo = false;
-        $foundInPublicRepo =  false;
+        $privateRepoVersion = '';
+        $publicRepoVersion = '';
 
         foreach ($composer->getRepositoryManager()->getRepositories() as $repository) {
+            /** @var RepositoryInterface $repository  */
             if ($repository instanceof ComposerRepository) {
+                $found = $repository->findPackage($packageName, '*');
+                $repoUrl = $repository->getRepoConfig()['url'];
 
-                if ($repository->getRepoConfig()['url'] === self::URL_REPO_MAGENTO) {
-                    if ($repository->findPackage($packageName, '*')) {
-                        $foundInInternalRepo = true;
-                    }
-                }
-
-                if ($repository->getRepoConfig()['url'] === self::URL_REPO_PACKAGIST) {
-                    if ($repository->findPackage($packageName, '*')) {
-                        $foundInPublicRepo = true;
+                if ($found) {
+                    switch ($repoUrl) {
+                        case self::URL_REPO_MAGENTO:
+                            $privateRepoVersion = $found->getFullPrettyVersion();
+                            break;
+                        case self::URL_REPO_PACKAGIST:
+                            $publicRepoVersion = $found->getFullPrettyVersion();
+                            break;
                     }
                 }
             }
         }
 
-        if($foundInInternalRepo && !$foundInPublicRepo && strpos($packageName, 'magento') === false){
-            //to do possibly throw an exception here
+        if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
+
+            throw new Exception(
+                'A higher version for this package was found in packagist.org, which might need further investigation.'
+            );
         }
     }
 }
