@@ -17,17 +17,13 @@ use Composer\Plugin\PluginInterface;
 use Composer\Repository\ComposerRepository;
 use Composer\Repository\RepositoryInterface;
 use Exception;
+use Composer\Downloader\TransportException;
 
 /**
  * Composer's entry point for the plugin
  */
-class PluginDefinition implements PluginInterface, EventSubscriberInterface
+class Plugin implements PluginInterface, EventSubscriberInterface
 {
-
-    /**#@+
-     * URL For Private Magento Repo
-     */
-    const URL_REPO_MAGENTO = 'https://repo.magento.com';
 
     /**#@+
      * URL For Public Packagist Repo
@@ -99,13 +95,10 @@ class PluginDefinition implements PluginInterface, EventSubscriberInterface
                 $repoUrl = $repository->getRepoConfig()['url'];
 
                 if ($found) {
-                    switch ($repoUrl) {
-                        case self::URL_REPO_MAGENTO:
-                            $privateRepoVersion = $found->getFullPrettyVersion();
-                            break;
-                        case self::URL_REPO_PACKAGIST:
-                            $publicRepoVersion = $found->getFullPrettyVersion();
-                            break;
+                    if (strpos($repoUrl, self::URL_REPO_PACKAGIST) === true) {
+                        $publicRepoVersion = $found->getFullPrettyVersion();
+                    } else {
+                        $privateRepoVersion = $found->getFullPrettyVersion();
                     }
                 }
             }
@@ -114,7 +107,7 @@ class PluginDefinition implements PluginInterface, EventSubscriberInterface
         if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
 
             throw new Exception(
-                'A higher version for this package was found in packagist.org, which might need further investigation.'
+                'A higher version for this package was found in public packagist.org, which might need further investigation.'
             );
         }
     }

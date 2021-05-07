@@ -22,15 +22,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Exception;
 
 /**
- * Test for Class Magento\ComposerDependencyVersionAuditPlugin\PluginDefinition
+ * Test for Class Magento\ComposerDependencyVersionAuditPlugin\Plugin
  */
-class PluginDefinitionTest extends TestCase
+class PluginTest extends TestCase
 {
 
     /**
-     * @var PluginDefinition
+     * @var Plugin
      */
-    private $pluginDefinition;
+    private $plugin;
 
     /**
      * @var RepositoryManager
@@ -91,26 +91,28 @@ class PluginDefinitionTest extends TestCase
 
         $this->io = new NullIO();
         $this->config = Factory::createConfig($this->io);
-        $this->pluginDefinition = new PluginDefinition();
+        $this->plugin = new Plugin();
         $this->repositoryManager =  new RepositoryManager($this->io, $this->config);
         parent::setUp();
     }
 
     /**
-     * Test Valid package install/update
+     * Test valid package install/update
      */
     public function testValidPackageUpdate(): void
     {
-        $config1 = [
+        var_dump(get_headers('https://repo.magento.com'));
+
+        $repoUrl1 = [
             'url' => 'https://repo.magento.com/'
         ];
 
-        $config2 = [
+        $repoUrl2 = [
             'url' => 'https://repo.packagist.org/'
         ];
 
-        $repository1 = new ComposerRepository($config1, $this->io, $this->config);
-        $repository2 = new ComposerRepository($config2, $this->io, $this->config);
+        $repository1 = new ComposerRepository($repoUrl1, $this->io, $this->config);
+        $repository2 = new ComposerRepository($repoUrl2, $this->io, $this->config);
 
         $this->repositoryManager->addRepository($repository1);
         $this->repositoryManager->addRepository($repository2);
@@ -137,7 +139,7 @@ class PluginDefinitionTest extends TestCase
             ->method('getPackage')
             ->willReturn($this->packageMock);
 
-        $this->pluginDefinition->packageUpdate($this->eventMock);
+        $this->plugin->packageUpdate($this->eventMock);
     }
 
     /**
@@ -147,22 +149,21 @@ class PluginDefinitionTest extends TestCase
     {
         $testPackage = 'temando/packagist-test';
 
-        $config1 = [
+        $repoUrl1 = [
             'url' => 'https://repo.magento.com'
         ];
 
-        $config2 = [
+        $repoUrl2 = [
             'url' => 'https://repo.packagist.org/'
         ];
 
-        $exceptionMessage = 'A higher version for this package was found in packagist.org, which might need further investigation.';
-
-        $repository1 = new ComposerRepository($config1, $this->io, $this->config);
-        $repository2 = new ComposerRepository($config2, $this->io, $this->config);
+        $repository1 = new ComposerRepository($repoUrl1, $this->io, $this->config);
+        $repository2 = new ComposerRepository($repoUrl2, $this->io, $this->config);
 
         $this->repositoryManager->addRepository($repository1);
         $this->repositoryManager->addRepository($repository2);
 
+        $exceptionMessage = 'A higher version for this package was found in public packagist.org, which might need further investigation.';
         $this->expectException(Exception::class);
         $this->expectExceptionMessage($exceptionMessage);
 
@@ -174,18 +175,18 @@ class PluginDefinitionTest extends TestCase
             ->method('getComposer')
             ->willReturn($this->composerMock);
 
-        $this->eventMock->expects($this->any())
+        $this->eventMock->expects($this->once())
             ->method('getOperation')
             ->willReturn($this->installOperationMock);
 
-        $this->packageMock->expects($this->any())
+        $this->packageMock->expects($this->once())
             ->method('getName')
             ->willReturn($testPackage);
 
-        $this->installOperationMock->expects($this->any())
+        $this->installOperationMock->expects($this->once())
             ->method('getPackage')
             ->willReturn($this->packageMock);
 
-        $this->pluginDefinition->packageUpdate($this->eventMock);
+        $this->plugin->packageUpdate($this->eventMock);
     }
 }
