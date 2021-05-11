@@ -174,15 +174,19 @@ class PluginTest extends TestCase
     {
         $this->repositoryMock1->expects($this->once())
             ->method('getRepoConfig')
-            ->willReturn(['url' => 'https://example.org']);
+            ->willReturn(['url' => 'https://repo.packagist.org']);
 
         $this->repositoryMock2->expects($this->once())
             ->method('getRepoConfig')
-            ->willReturn(['url' => 'https://dummyrepo.com']);
+            ->willReturn(['url' => 'https://someprivaterepo.org']);
 
         $this->versionSelectorMock->expects($this->exactly(2))
             ->method('findBestCandidate')
-            ->willReturnOnConsecutiveCalls(false, false);
+            ->willReturn($this->packageMock);
+
+        $this->packageMock->expects($this->exactly(2))
+            ->method('getFullPrettyVersion')
+            ->willReturnOnConsecutiveCalls('1.0.1', '1.0.10');
 
         $this->assertNull($this->plugin->packageUpdate($this->eventMock));
     }
