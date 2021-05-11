@@ -15,7 +15,7 @@
     "phpunit/phpunit": "^9"
   },
   "extra": {
-    "class": "Plugin"
+    "class": "Magento\\ComposerDependencyVersionAuditPlugin\\Plugin"
   },
   "autoload": {
     "psr-4": {
@@ -24,7 +24,7 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "Magento\\ComposerDependencyVersionAuditPlugin\\": "tests/Integration/Magento/ComposerDependencyVersionAuditPlugin/"
+      "Magento\\ComposerDependencyVersionAuditPlugin\\": "tests/Unit/Magento/ComposerDependencyVersionAuditPlugin/"
     }
   }
 }

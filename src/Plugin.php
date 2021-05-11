@@ -16,8 +16,9 @@ use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Repository\ComposerRepository;
 use Composer\Repository\RepositoryInterface;
+use Composer\Package\PackageInterface;
 use Exception;
-use Composer\Downloader\TransportException;
+use Magento\ComposerDependencyVersionAuditPlugin\Utils\Version;
 
 /**
  * Composer's entry point for the plugin
@@ -29,6 +30,29 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * URL For Public Packagist Repo
      */
     const URL_REPO_PACKAGIST = 'https://repo.packagist.org';
+
+    /**
+     * @var Composer
+     */
+    private $composer;
+
+    /**
+     * @var Version
+     */
+    private $versionSelector;
+
+    /**
+     * Initialize dependencies
+     * @param Version|null $version
+     */
+    public function __construct(Version $version = null)
+    {
+        if ($version) {
+            $this->versionSelector = $version;
+        } else {
+            $this->versionSelector = new Version();
+        }
+    }
 
     /**
      * @inheritdoc
@@ -77,7 +101,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     {
         /** @var  OperationInterface */
         $operation = $event->getOperation();
-        $composer = $event->getComposer();
+        $this->composer = $event->getComposer();
 
         /** @var PackageInterface $package  */
         $package = method_exists($operation, 'getPackage')
@@ -87,27 +111,31 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $packageName = $package->getName();
         $privateRepoVersion = '';
         $publicRepoVersion = '';
-
-        foreach ($composer->getRepositoryManager()->getRepositories() as $repository) {
+        foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
             /** @var RepositoryInterface $repository  */
             if ($repository instanceof ComposerRepository) {
-                $found = $repository->findPackage($packageName, '*');
+                $found = $this->versionSelector->findBestCandidate($this->composer, $packageName, $repository);
                 $repoUrl = $repository->getRepoConfig()['url'];
 
                 if ($found) {
-                    if (strpos($repoUrl, self::URL_REPO_PACKAGIST) === true) {
+                    if (strpos($repoUrl, self::URL_REPO_PACKAGIST) !== false) {
                         $publicRepoVersion = $found->getFullPrettyVersion();
                     } else {
-                        $privateRepoVersion = $found->getFullPrettyVersion();
+                        $currentPrivateRepoVersion = $found->getFullPrettyVersion();
+                        //private repo version should hold highest version of package
+                        if(empty($privateRepoVersion) || version_compare($currentPrivateRepoVersion, $privateRepoVersion, '>')){
+                            $privateRepoVersion = $currentPrivateRepoVersion;
+                        }
                     }
                 }
             }
         }
 
+
         if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
 
             throw new Exception(
-                'A higher version for this package was found in public packagist.org, which might need further investigation.'
+                "A higher version for $packageName was found in public packagist.org, which might need further investigation."
             );
         }
     }
