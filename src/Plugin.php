@@ -85,7 +85,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public static function getSubscribedEvents(): array
     {
-        return [Installer\PackageEvents::PRE_PACKAGE_INSTALL => 'packageUpdate',
+        return [
+            Installer\PackageEvents::PRE_PACKAGE_INSTALL => 'packageUpdate',
             Installer\PackageEvents::PRE_PACKAGE_UPDATE => 'packageUpdate'
         ];
     }
@@ -111,6 +112,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $packageName = $package->getName();
         $privateRepoVersion = '';
         $publicRepoVersion = '';
+        $privateRepoUrl = '';
         foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
             /** @var RepositoryInterface $repository  */
             if ($repository instanceof ComposerRepository) {
@@ -125,6 +127,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                         //private repo version should hold highest version of package
                         if(empty($privateRepoVersion) || version_compare($currentPrivateRepoVersion, $privateRepoVersion, '>')){
                             $privateRepoVersion = $currentPrivateRepoVersion;
+                            $privateRepoUrl = $repoUrl;
                         }
                     }
                 }
@@ -133,10 +136,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
 
         if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
-
-            throw new Exception(
-                "A higher version for $packageName was found in public packagist.org, which might need further investigation."
-            );
+            $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
+                             than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
+                             please investigate and update package requirement to match the version from the private repository";
+            throw new Exception($exceptionMessage);
         }
     }
 }

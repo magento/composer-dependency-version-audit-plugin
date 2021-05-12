@@ -25,9 +25,9 @@ class Version
      * @param Composer $composer
      * @param string $packageName
      * @param RepositoryInterface $repository
-     * @return PackageInterface|bool
+     * @return PackageInterface|null
      */
-    public function findBestCandidate(Composer $composer, string $packageName, RepositoryInterface $repository)
+    public function findBestCandidate(Composer $composer, string $packageName, RepositoryInterface $repository): ?PackageInterface
     {
         $pool = new Pool(
             $composer->getPackage()->getMinimumStability(),
@@ -35,6 +35,11 @@ class Version
         );
         $pool->addRepository($repository);
         $versionSelector = VersionSelectorFactory::create($pool);
-        return $versionSelector->findBestCandidate($packageName);
+        $bestCandidate = $versionSelector->findBestCandidate($packageName);
+
+        if($bestCandidate instanceof PackageInterface){
+            return $bestCandidate;
+        }
+        return null;
     }
 }

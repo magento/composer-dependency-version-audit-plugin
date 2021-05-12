@@ -141,23 +141,23 @@ class PluginTest extends TestCase
             ->onlyMethods(['findPackage', 'addPackage', 'getRepoConfig'])
             ->getMock();
 
-        $this->composerMock->expects($this->once())
+        $this->composerMock->expects($this->any())
             ->method('getRepositoryManager')
             ->willReturn($this->repositoryManager);
 
-        $this->eventMock->expects($this->once())
+        $this->eventMock->expects($this->any())
             ->method('getComposer')
             ->willReturn($this->composerMock);
 
-        $this->eventMock->expects($this->once())
+        $this->eventMock->expects($this->any())
             ->method('getOperation')
             ->willReturn($this->installOperationMock);
 
-        $this->installOperationMock->expects($this->once())
+        $this->installOperationMock->expects($this->any())
             ->method('getPackage')
             ->willReturn($this->packageMock);
 
-        $this->packageMock->expects($this->once())
+        $this->packageMock->expects($this->any())
             ->method('getName')
             ->willReturn(self::PACKAGE_NAME);
 
@@ -172,19 +172,19 @@ class PluginTest extends TestCase
      */
     public function testValidPackageUpdate(): void
     {
-        $this->repositoryMock1->expects($this->once())
+        $this->repositoryMock1->expects($this->any())
             ->method('getRepoConfig')
             ->willReturn(['url' => 'https://repo.packagist.org']);
 
-        $this->repositoryMock2->expects($this->once())
+        $this->repositoryMock2->expects($this->any())
             ->method('getRepoConfig')
             ->willReturn(['url' => 'https://someprivaterepo.org']);
 
-        $this->versionSelectorMock->expects($this->exactly(2))
+        $this->versionSelectorMock->expects($this->any())
             ->method('findBestCandidate')
             ->willReturn($this->packageMock);
 
-        $this->packageMock->expects($this->exactly(2))
+        $this->packageMock->expects($this->any())
             ->method('getFullPrettyVersion')
             ->willReturnOnConsecutiveCalls('1.0.1', '1.0.10');
 
@@ -196,27 +196,32 @@ class PluginTest extends TestCase
      */
     public function testInvalidPackageUpdate(): void
     {
-        $exceptionMessage = 'A higher version for %s was found in public packagist.org, which might need further investigation.';
+        $privateRepoUrl = 'https://example.org';
+        $publicRepoVersion ='1.0.5';
+        $privateRepoVersion = '1.0.1';
 
-        $this->repositoryMock1->expects($this->once())
+        $this->repositoryMock1->expects($this->any())
             ->method('getRepoConfig')
             ->willReturn(['url' => 'https://repo.packagist.org']);
 
-        $this->repositoryMock2->expects($this->once())
+        $this->repositoryMock2->expects($this->any())
             ->method('getRepoConfig')
-            ->willReturn(['url' => 'https://example.org']);
+            ->willReturn(['url' => $privateRepoUrl]);
 
-        $this->versionSelectorMock->expects($this->exactly(2))
+        $this->versionSelectorMock->expects($this->any())
             ->method('findBestCandidate')
             ->willReturn($this->packageMock);
 
-        $this->packageMock->expects($this->exactly(2))
+        $this->packageMock->expects($this->any())
             ->method('getFullPrettyVersion')
-            ->willReturnOnConsecutiveCalls('1.0.5', '1.0.1');
+            ->willReturnOnConsecutiveCalls($publicRepoVersion, $privateRepoVersion);
 
+        $packageName = self::PACKAGE_NAME;
+        $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
+                             than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
+                             please investigate and update package requirement to match the version from the private repository";
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage(sprintf($exceptionMessage, self::PACKAGE_NAME));
         $this->plugin->packageUpdate($this->eventMock);
     }
-
 }
