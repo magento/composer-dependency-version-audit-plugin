@@ -41,6 +41,20 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     private $versionSelector;
 
+    /**#@+
+     * Constant for VBE ALLOW LIST
+     */
+    private const VBE_ALLOW_LIST = [
+        'vertexinc',
+        'yotpo',
+        'klarna',
+        'amzn',
+        'dotmailer',
+        'braintree',
+        'paypal',
+        'gene'
+    ];
+
     /**
      * Initialize dependencies
      * @param Version|null $version
@@ -113,6 +127,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $privateRepoVersion = '';
         $publicRepoVersion = '';
         $privateRepoUrl = '';
+        $isPackageVBE = false;
         foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
             /** @var RepositoryInterface $repository  */
             if ($repository instanceof ComposerRepository) {
@@ -134,12 +149,21 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             }
         }
 
+        //allow VBE's to pass through version audit
+        foreach (self::VBE_ALLOW_LIST as $vbe) {
+            if (strpos(strtolower($packageName), $vbe) === 0) {
+                $isPackageVBE = true;
+            }
+        }
+
 
         if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
             $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
                              please investigate and update package requirement to match the version from the private repository";
-            throw new Exception($exceptionMessage);
+            if (!$isPackageVBE) {
+                throw new Exception($exceptionMessage);
+            }
         }
     }
 }
