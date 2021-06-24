@@ -127,14 +127,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $privateRepoVersion = '';
         $publicRepoVersion = '';
         $privateRepoUrl = '';
-        $isPackageVBE = false;
-
-        //allowed VBE's should be able to pass version check
-        foreach (self::VBE_ALLOW_LIST as $vbe) {
-            if (strpos(strtolower($packageName), $vbe) === 0) {
-                $isPackageVBE = true;
-            }
-        }
+        list($namespace, $project) = explode("/", $packageName);
+        $isPackageVBE = in_array($namespace, self::VBE_ALLOW_LIST, true);
 
         if(!$isPackageVBE) {
 
