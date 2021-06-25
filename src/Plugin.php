@@ -41,6 +41,20 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     private $versionSelector;
 
+    /**#@+
+     * Constant for VBE ALLOW LIST
+     */
+    private const VBE_ALLOW_LIST = [
+        'vertexinc',
+        'yotpo',
+        'klarna',
+        'amzn',
+        'dotmailer',
+        'braintree',
+        'paypal',
+        'gene'
+    ];
+
     /**
      * Initialize dependencies
      * @param Version|null $version
@@ -113,33 +127,38 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $privateRepoVersion = '';
         $publicRepoVersion = '';
         $privateRepoUrl = '';
-        foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
-            /** @var RepositoryInterface $repository  */
-            if ($repository instanceof ComposerRepository) {
-                $found = $this->versionSelector->findBestCandidate($this->composer, $packageName, $repository);
-                $repoUrl = $repository->getRepoConfig()['url'];
+        list($namespace, $project) = explode("/", $packageName);
+        $isPackageVBE = in_array($namespace, self::VBE_ALLOW_LIST, true);
 
-                if ($found) {
-                    if (strpos($repoUrl, self::URL_REPO_PACKAGIST) !== false) {
-                        $publicRepoVersion = $found->getFullPrettyVersion();
-                    } else {
-                        $currentPrivateRepoVersion = $found->getFullPrettyVersion();
-                        //private repo version should hold highest version of package
-                        if(empty($privateRepoVersion) || version_compare($currentPrivateRepoVersion, $privateRepoVersion, '>')){
-                            $privateRepoVersion = $currentPrivateRepoVersion;
-                            $privateRepoUrl = $repoUrl;
+        if(!$isPackageVBE) {
+
+            foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
+
+                /** @var RepositoryInterface $repository */
+                if ($repository instanceof ComposerRepository) {
+                    $found = $this->versionSelector->findBestCandidate($this->composer, $packageName, $repository);
+                    $repoUrl = $repository->getRepoConfig()['url'];
+
+                    if ($found) {
+                        if (strpos($repoUrl, self::URL_REPO_PACKAGIST) !== false) {
+                            $publicRepoVersion = $found->getFullPrettyVersion();
+                        } else {
+                            $currentPrivateRepoVersion = $found->getFullPrettyVersion();
+                            //private repo version should hold highest version of package
+                            if (empty($privateRepoVersion) || version_compare($currentPrivateRepoVersion, $privateRepoVersion, '>')) {
+                                $privateRepoVersion = $currentPrivateRepoVersion;
+                                $privateRepoUrl = $repoUrl;
+                            }
                         }
                     }
                 }
             }
-        }
-
-
-        if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
-            $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
+            if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
+                $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
                              please investigate and update package requirement to match the version from the private repository";
-            throw new Exception($exceptionMessage);
+                throw new Exception($exceptionMessage);
+            }
         }
     }
 }
