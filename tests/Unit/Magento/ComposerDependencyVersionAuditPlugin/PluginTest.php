@@ -21,6 +21,8 @@ use Composer\Repository\RepositoryManager;
 use Composer\Config;
 use PHPUnit\Framework\MockObject\MockObject;
 use Composer\DependencyResolver\Pool;
+use Composer\Util\HttpDownloader;
+use Composer\Repository\RepositorySet;
 
 /**
  * Test for Class Magento\ComposerDependencyVersionAuditPlugin\Plugin
@@ -87,20 +89,45 @@ class PluginTest extends TestCase
      */
     private $repositoryMock2;
 
+    /**
+     * @var HttpDownloader
+     */
+    private $httpDownloader;
+
+    /**
+     * @var MockObject
+     */
+    private $repositorySetMock;
+
 
     /**#@+
      * Package name constant for test
      */
-    const PACKAGE_NAME = 'foo';
+    const PACKAGE_NAME = 'foo/some-test-package';
 
     /**
      * Initialize Dependencies
      */
     protected function setUp(): void
     {
+        $composerMajorVersion = (int)explode('.', Composer::VERSION)[0];
         $this->io = new NullIO();
         $this->config = Factory::createConfig($this->io);
-        $this->repositoryManager = new RepositoryManager($this->io, $this->config);
+
+        if ($composerMajorVersion === 1) {
+            $this->repositoryManager = new RepositoryManager($this->io, $this->config);
+            $this->poolMock = $this->getMockBuilder(Pool::class)
+                ->disableOriginalConstructor()
+                ->onlyMethods(['addRepository'])
+                ->getMock();
+        } elseif ($composerMajorVersion === 2) {
+            $this->httpDownloader = new HttpDownloader($this->io, $this->config);
+            $this->repositoryManager = new RepositoryManager($this->io, $this->config, $this->httpDownloader);
+            $this->repositorySetMock = $this->getMockBuilder(RepositorySet::class)
+                ->disableOriginalConstructor()
+                ->onlyMethods(['addRepository'])
+                ->getMock();
+        }
 
         $this->eventMock = $this->getMockBuilder(PackageEvent::class)
             ->onlyMethods(['getOperation', 'getComposer'])
@@ -119,11 +146,6 @@ class PluginTest extends TestCase
         $this->installOperationMock = $this->getMockBuilder(InstallOperation::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getPackage'])
-            ->getMock();
-
-        $this->poolMock = $this->getMockBuilder(Pool::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['addRepository'])
             ->getMock();
 
         $this->versionSelectorMock = $this->getMockBuilder(Version::class)
