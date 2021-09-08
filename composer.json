@@ -4,8 +4,7 @@
   "description": "Validating packages through a composer plugin",
   "version": "0.1.1",
   "license": [
-    "OSL-3.0",
-    "AFL-3.0"
+    "OSL-3.0"
   ],
   "require": {
     "composer/composer": "^1.9 || ^2.0",
