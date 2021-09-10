@@ -9,10 +9,12 @@ namespace Magento\ComposerDependencyVersionAuditPlugin;
 
 use Composer\Composer;
 use Composer\DependencyResolver\Operation\OperationInterface;
+use Composer\DependencyResolver\Request;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer;
 use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
+use Composer\IO\NullIO;
 use Composer\Plugin\PluginInterface;
 use Composer\Repository\ComposerRepository;
 use Composer\Repository\RepositoryInterface;
@@ -41,6 +43,16 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     private $versionSelector;
 
+    /**
+     * @var IOInterface
+     */
+    private $io;
+
+    /**
+     * @var array
+     */
+    private $nonConstrainedPackages;
+
     /**#@+
      * Constant for VBE ALLOW LIST
      */
@@ -59,12 +71,18 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Initialize dependencies
      * @param Version|null $version
      */
-    public function __construct(Version $version = null)
+    public function __construct(Version $version = null, NullIO $io = null)
     {
         if ($version) {
             $this->versionSelector = $version;
         } else {
             $this->versionSelector = new Version();
+        }
+
+        if ($io) {
+            $this->io = $io;
+        } else {
+            $this->io = new NullIO();
         }
     }
 
@@ -101,8 +119,29 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     {
         return [
             Installer\PackageEvents::PRE_PACKAGE_INSTALL => 'packageUpdate',
-            Installer\PackageEvents::PRE_PACKAGE_UPDATE => 'packageUpdate'
+            Installer\PackageEvents::PRE_PACKAGE_UPDATE => 'packageUpdate',
         ];
+    }
+
+    /**
+     * Get all package installations that use non-fixed version constraints (IE: 2.4.*, ^2.4, etc.)
+     *
+     * @param Request $request
+     * @return array
+     */
+    protected function getNonFixedConstraintList(Request $request): array
+    {
+        if (!$this->nonConstrainedPackages) {
+            $constraintList = [];
+            foreach ($request->getJobs() as $job) {
+                if ($job['cmd'] === 'install' && !$job['fixed'])
+                {
+                    $constraintList[$job['packageName']] = true;
+                }
+            }
+            $this->nonConstrainedPackages = $constraintList;
+        }
+        return $this->nonConstrainedPackages;
     }
 
     /**
@@ -131,7 +170,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $isPackageVBE = in_array($namespace, self::VBE_ALLOW_LIST, true);
 
         if(!$isPackageVBE) {
-
             foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
 
                 /** @var RepositoryInterface $repository */
@@ -153,11 +191,17 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                     }
                 }
             }
-            if ($privateRepoVersion && $publicRepoVersion && (version_compare($publicRepoVersion, $privateRepoVersion, '>'))) {
+
+            if ($privateRepoVersion && $publicRepoVersion && version_compare($publicRepoVersion, $privateRepoVersion, '>')) {
                 $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
                              please investigate and update package requirement to match the version from the private repository";
-                throw new Exception($exceptionMessage);
+
+                if (array_key_exists($packageName, $this->getNonFixedConstraintList($event->getRequest()))) {
+                    throw new Exception($exceptionMessage);
+                } else {
+                    $this->io->writeError('<warning>' . $exceptionMessage . '</warning>');
+                }
             }
         }
     }
