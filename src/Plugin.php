@@ -15,7 +15,9 @@ use Composer\Installer;
 use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
 use Composer\IO\NullIO;
+use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
+use Composer\Plugin\PrePoolCreateEvent;
 use Composer\Repository\ComposerRepository;
 use Composer\Repository\RepositoryInterface;
 use Composer\Package\PackageInterface;
@@ -51,7 +53,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     /**
      * @var array
      */
-    private $nonConstrainedPackages;
+    private $nonFixedPackages;
 
     /**#@+
      * Constant for VBE ALLOW LIST
@@ -117,21 +119,28 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public static function getSubscribedEvents(): array
     {
-        return [
+        $events = [
             Installer\PackageEvents::PRE_PACKAGE_INSTALL => 'packageUpdate',
-            Installer\PackageEvents::PRE_PACKAGE_UPDATE => 'packageUpdate',
+            Installer\PackageEvents::PRE_PACKAGE_UPDATE => 'packageUpdate'
         ];
+
+        if ((int)explode('.', Composer::VERSION)[0] === 2) {
+            $events[PluginEvents::PRE_POOL_CREATE] = 'prePoolCreate';
+        }
+
+        return $events;
     }
 
     /**
      * Get all package installations that use non-fixed version constraints (IE: 2.4.*, ^2.4, etc.)
+     * this needs to be done for Composer V1 installs since prePoolCreate event doesn't exist in V1
      *
      * @param Request $request
      * @return array
      */
     protected function getNonFixedConstraintList(Request $request): array
     {
-        if (!$this->nonConstrainedPackages) {
+        if (!$this->nonFixedPackages) {
             $constraintList = [];
             foreach ($request->getJobs() as $job) {
                 if ($job['cmd'] === 'install' && !$job['fixed'])
@@ -139,9 +148,27 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                     $constraintList[$job['packageName']] = true;
                 }
             }
-            $this->nonConstrainedPackages = $constraintList;
+            $this->nonFixedPackages = $constraintList;
         }
-        return $this->nonConstrainedPackages;
+        return $this->nonFixedPackages;
+    }
+
+    /**
+     * Event listener for PrePoolCreate event that is used for composer V2
+     *
+     * @param PrePoolCreateEvent $event
+     */
+    public function prePoolCreate(PrePoolCreateEvent $event): void
+    {
+        if (!$this->nonFixedPackages) {
+            $constraintList = [];
+            foreach ($event->getRequest()->getRequires() as $name => $constraint) {
+                if (strpbrk($constraint->getPrettyString(), "*^-~")){
+                    $constraintList[$name] = true;
+                }
+            }
+            $this->nonFixedPackages = $constraintList;
+        }
     }
 
     /**
@@ -168,6 +195,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $privateRepoUrl = '';
         list($namespace, $project) = explode("/", $packageName);
         $isPackageVBE = in_array($namespace, self::VBE_ALLOW_LIST, true);
+
+        if ((int)explode('.', Composer::VERSION)[0] === 1) {
+            $this->getNonFixedConstraintList($event->getRequest());
+        }
 
         if(!$isPackageVBE) {
             foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
@@ -197,7 +228,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
                              please investigate and update package requirement to match the version from the private repository";
 
-                if (array_key_exists($packageName, $this->getNonFixedConstraintList($event->getRequest()))) {
+                if (array_key_exists($packageName, $this->nonFixedPackages)) {
                     throw new Exception($exceptionMessage);
                 } else {
                     $this->io->writeError('<warning>' . $exceptionMessage . '</warning>');
