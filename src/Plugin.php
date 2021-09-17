@@ -138,7 +138,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param Request $request
      * @return array
      */
-    protected function getNonFixedConstraintList(Request $request): array
+    private function getNonFixedConstraintList(Request $request): array
     {
         if (!$this->nonFixedPackages) {
             $constraintList = [];
@@ -162,11 +162,28 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     {
         if (!$this->nonFixedPackages) {
             $constraintList = [];
+
+            /**
+             * get all packages that are in the composer.json under require section, this will be the only time
+             * we will be able to get constraints for packages in the require section as this request data isn't
+             * shared in the installer event on composer v2
+             */
             foreach ($event->getRequest()->getRequires() as $name => $constraint) {
                 if (strpbrk($constraint->getPrettyString(), "*^-~")){
                     $constraintList[$name] = true;
                 }
             }
+
+            /**
+             * get all sub packages that are now requirements for new packages to install and store their constraints.
+             */
+            foreach ($event->getPackages() as $package) {
+                foreach ($package->getRequires() as $name => $constraint) {
+                    if (strpbrk($constraint->getPrettyConstraint(), "*^-~"))
+                        $constraintList[$name] = true;
+                }
+            }
+
             $this->nonFixedPackages = $constraintList;
         }
     }

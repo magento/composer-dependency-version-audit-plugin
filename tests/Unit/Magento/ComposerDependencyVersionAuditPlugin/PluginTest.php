@@ -171,7 +171,7 @@ class PluginTest extends TestCase
                 ->getMock();
 
             $this->prePoolCreateMock = $this->getMockBuilder(PrePoolCreateEvent::class)
-                ->onlyMethods(['getRequest'])
+                ->onlyMethods(['getRequest', 'getPackages'])
                 ->disableOriginalConstructor()
                 ->getMock();
 
@@ -284,6 +284,11 @@ class PluginTest extends TestCase
                 ->willReturn([
                     self::PACKAGE_NAME => $constraintMock
                 ]);
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getPackages')
+                ->willReturn([]);
+
             $this->plugin->prePoolCreate($this->prePoolCreateMock);
         }
 
@@ -316,9 +321,9 @@ class PluginTest extends TestCase
             ->willReturnOnConsecutiveCalls($publicRepoVersion, $privateRepoVersion);
 
         $packageName = self::PACKAGE_NAME;
-        $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
+        $exceptionMessage = "<warning>Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
-                             please investigate and update package requirement to match the version from the private repository";
+                             please investigate and update package requirement to match the version from the private repository</warning>";
 
         if ((int)explode('.', Composer::VERSION)[0] === 1) {
             $this->requestMock->expects($this->any())
@@ -341,6 +346,11 @@ class PluginTest extends TestCase
                 ->willReturn([
                     self::PACKAGE_NAME => $constraintMock
                 ]);
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getPackages')
+                ->willReturn([]);
+
             $this->plugin->prePoolCreate($this->prePoolCreateMock);
         }
 
@@ -397,6 +407,11 @@ class PluginTest extends TestCase
                 ->willReturn([
                     self::PACKAGE_NAME => $constraintMock
                 ]);
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getPackages')
+                ->willReturn([]);
+
             $this->plugin->prePoolCreate($this->prePoolCreateMock);
         }
 
