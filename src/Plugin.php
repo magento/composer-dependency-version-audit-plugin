@@ -14,7 +14,6 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer;
 use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
-use Composer\IO\NullIO;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PrePoolCreateEvent;
@@ -45,10 +44,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     private $versionSelector;
 
-    /**
-     * @var IOInterface
-     */
-    private $io;
 
     /**
      * @var array
@@ -79,12 +74,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             $this->versionSelector = $version;
         } else {
             $this->versionSelector = new Version();
-        }
-
-        if ($io) {
-            $this->io = $io;
-        } else {
-            $this->io = new NullIO();
         }
     }
 
@@ -248,7 +237,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                 if (array_key_exists($packageName, $this->nonFixedPackages)) {
                     throw new Exception($exceptionMessage);
                 } else {
-                    $this->io->writeError('<warning>' . $exceptionMessage . '</warning>');
+                    $event->getIO()->writeError('<warning>' . $exceptionMessage . '</warning>');
                 }
             }
         }
