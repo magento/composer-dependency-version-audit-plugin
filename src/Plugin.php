@@ -14,7 +14,6 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Installer;
 use Composer\Installer\PackageEvent;
 use Composer\IO\IOInterface;
-use Composer\IO\NullIO;
 use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PrePoolCreateEvent;
@@ -46,11 +45,6 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     private $versionSelector;
 
     /**
-     * @var IOInterface
-     */
-    private $io;
-
-    /**
      * @var array
      */
     private $nonFixedPackages;
@@ -73,18 +67,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Initialize dependencies
      * @param Version|null $version
      */
-    public function __construct(Version $version = null, NullIO $io = null)
+    public function __construct(Version $version = null)
     {
         if ($version) {
             $this->versionSelector = $version;
         } else {
             $this->versionSelector = new Version();
-        }
-
-        if ($io) {
-            $this->io = $io;
-        } else {
-            $this->io = new NullIO();
         }
     }
 
@@ -143,7 +131,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (!$this->nonFixedPackages) {
             $constraintList = [];
             foreach ($request->getJobs() as $job) {
-                if ($job['cmd'] === 'install' && !$job['fixed'])
+                if ($job['cmd'] === 'install' && strpbrk($job['constraint']->getPrettyString(), "*^-~"))
                 {
                     $constraintList[$job['packageName']] = true;
                 }
@@ -245,10 +233,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
                              please investigate and update package requirement to match the version from the private repository";
 
-                if (array_key_exists($packageName, $this->nonFixedPackages)) {
+                if ($this->nonFixedPackages && array_key_exists($packageName, $this->nonFixedPackages)) {
                     throw new Exception($exceptionMessage);
                 } else {
-                    $this->io->writeError('<warning>' . $exceptionMessage . '</warning>');
+                    $event->getIO()->writeError('<warning>' . $exceptionMessage . '</warning>');
                 }
             }
         }
