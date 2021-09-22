@@ -43,11 +43,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @var Version
      */
     private $versionSelector;
-
-<<<<<<< HEAD
-=======
-
->>>>>>> d51555f7f8029c965c594c33e189a0857da9f783
+    
     /**
      * @var array
      */
