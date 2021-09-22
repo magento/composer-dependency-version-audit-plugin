@@ -234,7 +234,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
                              please investigate and update package requirement to match the version from the private repository";
 
-                if (array_key_exists($packageName, $this->nonFixedPackages)) {
+                if ($this->nonFixedPackages && array_key_exists($packageName, $this->nonFixedPackages)) {
                     throw new Exception($exceptionMessage);
                 } else {
                     $event->getIO()->writeError('<warning>' . $exceptionMessage . '</warning>');
