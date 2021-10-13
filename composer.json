@@ -25,5 +25,8 @@
     "psr-4": {
       "Magento\\ComposerDependencyVersionAuditPlugin\\": "tests/Unit/Magento/ComposerDependencyVersionAuditPlugin/"
     }
+  },
+  "scripts": {
+    "pre-pool-create": "Magento\\ComposerDependencyVersionAuditPlugin\\Plugin::prePoolCreate"
   }
 }
