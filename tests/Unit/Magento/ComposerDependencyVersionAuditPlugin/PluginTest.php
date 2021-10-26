@@ -144,7 +144,7 @@ class PluginTest extends TestCase
                 ->getMock();
 
             $this->eventMock = $this->getMockBuilder(PackageEvent::class)
-                ->onlyMethods(['getOperation', 'getComposer', 'getRequest'])
+                ->onlyMethods(['getOperation', 'getComposer', 'getRequest', 'getIO'])
                 ->disableOriginalConstructor()
                 ->getMock();
 
@@ -161,7 +161,7 @@ class PluginTest extends TestCase
                 ->getMock();
 
             $this->eventMock = $this->getMockBuilder(PackageEvent::class)
-                ->onlyMethods(['getOperation', 'getComposer'])
+                ->onlyMethods(['getOperation', 'getComposer', 'getIO'])
                 ->disableOriginalConstructor()
                 ->getMock();
 
@@ -236,7 +236,7 @@ class PluginTest extends TestCase
             ->method('getName')
             ->willReturn(self::PACKAGE_NAME);
 
-        $this->plugin = new Plugin($this->versionSelectorMock, $this->ioMock);
+        $this->plugin = new Plugin($this->versionSelectorMock);
         $this->repositoryManager->addRepository($this->repositoryMock1);
         $this->repositoryManager->addRepository($this->repositoryMock2);
         parent::setUp();
@@ -263,21 +263,22 @@ class PluginTest extends TestCase
             ->method('getFullPrettyVersion')
             ->willReturnOnConsecutiveCalls('1.0.1', '1.0.10');
 
+        $constraintMock = $this->getMockBuilder(Constraint::class)
+            ->onlyMethods(['getPrettyString'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $constraintMock->expects($this->any())
+            ->method('getPrettyString')
+            ->willReturn("1.0.5");
+
         if ((int)explode('.', Composer::VERSION)[0] === 1) {
             $this->requestMock->expects($this->any())
                 ->method('getJobs')
                 ->willReturn([
-                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => true]
+                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => true, 'constraint' => $constraintMock]
                 ]);
         } else {
-            $constraintMock = $this->getMockBuilder(Constraint::class)
-                ->onlyMethods(['getPrettyString'])
-                ->disableOriginalConstructor()
-                ->getMock();
-
-            $constraintMock->expects($this->any())
-                ->method('getPrettyString')
-                ->willReturn("1.0.5");
 
             $this->requestMock->expects($this->any())
                 ->method('getRequires')
@@ -320,6 +321,15 @@ class PluginTest extends TestCase
             ->method('getFullPrettyVersion')
             ->willReturnOnConsecutiveCalls($publicRepoVersion, $privateRepoVersion);
 
+        $constraintMock = $this->getMockBuilder(Constraint::class)
+            ->onlyMethods(['getPrettyString'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $constraintMock->expects($this->any())
+            ->method('getPrettyString')
+            ->willReturn("1.0.5");
+
         $packageName = self::PACKAGE_NAME;
         $exceptionMessage = "<warning>Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
@@ -329,17 +339,9 @@ class PluginTest extends TestCase
             $this->requestMock->expects($this->any())
                 ->method('getJobs')
                 ->willReturn([
-                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => true]
+                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => true, 'constraint' => $constraintMock]
                 ]);
         } else {
-            $constraintMock = $this->getMockBuilder(Constraint::class)
-                ->onlyMethods(['getPrettyString'])
-                ->disableOriginalConstructor()
-                ->getMock();
-
-            $constraintMock->expects($this->any())
-                ->method('getPrettyString')
-                ->willReturn("1.0.5");
 
             $this->requestMock->expects($this->any())
                 ->method('getRequires')
@@ -357,6 +359,10 @@ class PluginTest extends TestCase
         $this->ioMock->expects($this->once())
             ->method('writeError')
             ->with($this->stringContains($exceptionMessage));
+
+        $this->eventMock->expects($this->once())
+            ->method('getIO')
+            ->willReturn($this->ioMock);
 
         $this->plugin->packageUpdate($this->eventMock);
     }
@@ -386,21 +392,22 @@ class PluginTest extends TestCase
             ->method('getFullPrettyVersion')
             ->willReturnOnConsecutiveCalls($publicRepoVersion, $privateRepoVersion);
 
+        $constraintMock = $this->getMockBuilder(Constraint::class)
+            ->onlyMethods(['getPrettyString'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $constraintMock->expects($this->any())
+            ->method('getPrettyString')
+            ->willReturn("1.0.*");
+
         if ((int)explode('.', Composer::VERSION)[0] === 1) {
             $this->requestMock->expects($this->any())
                 ->method('getJobs')
                 ->willReturn([
-                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => false]
+                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => false, 'constraint' => $constraintMock]
                 ]);
         } else {
-            $constraintMock = $this->getMockBuilder(Constraint::class)
-                ->onlyMethods(['getPrettyString'])
-                ->disableOriginalConstructor()
-                ->getMock();
-
-            $constraintMock->expects($this->any())
-                ->method('getPrettyString')
-                ->willReturn("1.0.*");
 
             $this->requestMock->expects($this->any())
                 ->method('getRequires')

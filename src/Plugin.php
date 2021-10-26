@@ -18,6 +18,7 @@ use Composer\Plugin\PluginEvents;
 use Composer\Plugin\PluginInterface;
 use Composer\Plugin\PrePoolCreateEvent;
 use Composer\Repository\ComposerRepository;
+use Composer\Repository\FilterRepository;
 use Composer\Repository\RepositoryInterface;
 use Composer\Package\PackageInterface;
 use Exception;
@@ -43,7 +44,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @var Version
      */
     private $versionSelector;
-    
+
     /**
      * @var array
      */
@@ -207,22 +208,23 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         if(!$isPackageVBE) {
             foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
-
+                $found = $this->versionSelector->findBestCandidate($this->composer, $packageName, $repository);
                 /** @var RepositoryInterface $repository */
                 if ($repository instanceof ComposerRepository) {
-                    $found = $this->versionSelector->findBestCandidate($this->composer, $packageName, $repository);
                     $repoUrl = $repository->getRepoConfig()['url'];
 
-                    if ($found) {
-                        if (strpos($repoUrl, self::URL_REPO_PACKAGIST) !== false) {
-                            $publicRepoVersion = $found->getFullPrettyVersion();
-                        } else {
-                            $currentPrivateRepoVersion = $found->getFullPrettyVersion();
-                            //private repo version should hold highest version of package
-                            if (empty($privateRepoVersion) || version_compare($currentPrivateRepoVersion, $privateRepoVersion, '>')) {
-                                $privateRepoVersion = $currentPrivateRepoVersion;
-                                $privateRepoUrl = $repoUrl;
-                            }
+                } else if ($repository instanceof FilterRepository) {
+                    $repoUrl = $repository->getRepository()->getRepoConfig()['url'];
+                }
+                if ($found) {
+                    if (strpos($repoUrl, self::URL_REPO_PACKAGIST) !== false) {
+                        $publicRepoVersion = $found->getFullPrettyVersion();
+                    } else {
+                        $currentPrivateRepoVersion = $found->getFullPrettyVersion();
+                        //private repo version should hold highest version of package
+                        if (empty($privateRepoVersion) || version_compare($currentPrivateRepoVersion, $privateRepoVersion, '>')) {
+                            $privateRepoVersion = $currentPrivateRepoVersion;
+                            $privateRepoUrl = $repoUrl;
                         }
                     }
                 }
