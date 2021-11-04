@@ -132,8 +132,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if (!$this->nonFixedPackages) {
             $constraintList = [];
             foreach ($request->getJobs() as $job) {
-                if ($job['cmd'] === 'install' && strpbrk($job['constraint']->getPrettyString(), "*^-~"))
-                {
+                if ($job['cmd'] === 'install' &&
+                    (strpbrk($job['constraint']->getPrettyString(), "*^-~") ||
+                        preg_match('{(?<!^|as|[=>< ,]) *(?<!-)[, ](?!-) *(?!,|as|$)}', $job['constraint']->getPrettyString()
+                        )
+                    )
+                ) {
                     $constraintList[$job['packageName']] = true;
                 }
             }
@@ -158,7 +162,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
              * shared in the installer event on composer v2
              */
             foreach ($event->getRequest()->getRequires() as $name => $constraint) {
-                if (strpbrk($constraint->getPrettyString(), "*^-~")){
+                $prettyString = $constraint->getPrettyString();
+                $multiConstraint = preg_match('{(?<!^|as|[=>< ,]) *(?<!-)[, ](?!-) *(?!,|as|$)}', $prettyString);
+                if (strpbrk($prettyString, "*^-~") || $multiConstraint){
                     $constraintList[$name] = true;
                 }
             }
@@ -168,7 +174,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
              */
             foreach ($event->getPackages() as $package) {
                 foreach ($package->getRequires() as $name => $constraint) {
-                    if (strpbrk($constraint->getPrettyConstraint(), "*^-~"))
+                    $prettyConstraint = $constraint->getPrettyConstraint();
+                    $multiConstraint = preg_match('{(?<!^|as|[=>< ,]) *(?<!-)[, ](?!-) *(?!,|as|$)}', $prettyConstraint);
+                    if (strpbrk($prettyConstraint, "*^-~")|| $multiConstraint)
                         $constraintList[$name] = true;
                 }
             }
