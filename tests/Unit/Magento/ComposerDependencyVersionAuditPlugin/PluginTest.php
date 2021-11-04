@@ -7,8 +7,11 @@ declare(strict_types=1);
 
 namespace Magento\ComposerDependencyVersionAuditPlugin;
 
+use Composer\DependencyResolver\Request;
 use Composer\Factory;
 use Composer\IO\NullIO;
+use Composer\Plugin\PrePoolCreateEvent;
+use Composer\Semver\Constraint\Constraint;
 use Magento\ComposerDependencyVersionAuditPlugin\Utils\Version;
 use PHPUnit\Framework\TestCase;
 use Composer\DependencyResolver\Operation\InstallOperation;
@@ -99,6 +102,20 @@ class PluginTest extends TestCase
      */
     private $repositorySetMock;
 
+    /**
+     * @var Request
+     */
+    private $requestMock;
+
+    /**
+     * @var NullIO
+     */
+    private $ioMock;
+
+    /**
+     * @var PrePoolCreateEvent
+     */
+    private $prePoolCreateMock;
 
     /**#@+
      * Package name constant for test
@@ -120,6 +137,21 @@ class PluginTest extends TestCase
                 ->disableOriginalConstructor()
                 ->onlyMethods(['addRepository'])
                 ->getMock();
+
+            $this->requestMock = $this->getMockBuilder(Request::class)
+                ->onlyMethods(['getJobs'])
+                ->disableOriginalConstructor()
+                ->getMock();
+
+            $this->eventMock = $this->getMockBuilder(PackageEvent::class)
+                ->onlyMethods(['getOperation', 'getComposer', 'getRequest', 'getIO'])
+                ->disableOriginalConstructor()
+                ->getMock();
+
+            $this->eventMock->expects($this->any())
+                ->method('getRequest')
+                ->willReturn($this->requestMock);
+
         } elseif ($composerMajorVersion === 2) {
             $this->httpDownloader = new HttpDownloader($this->io, $this->config);
             $this->repositoryManager = new RepositoryManager($this->io, $this->config, $this->httpDownloader);
@@ -127,12 +159,28 @@ class PluginTest extends TestCase
                 ->disableOriginalConstructor()
                 ->onlyMethods(['addRepository'])
                 ->getMock();
+
+            $this->eventMock = $this->getMockBuilder(PackageEvent::class)
+                ->onlyMethods(['getOperation', 'getComposer', 'getIO'])
+                ->disableOriginalConstructor()
+                ->getMock();
+
+            $this->requestMock = $this->getMockBuilder(Request::class)
+                ->onlyMethods(['getRequires'])
+                ->disableOriginalConstructor()
+                ->getMock();
+
+            $this->prePoolCreateMock = $this->getMockBuilder(PrePoolCreateEvent::class)
+                ->onlyMethods(['getRequest', 'getPackages'])
+                ->disableOriginalConstructor()
+                ->getMock();
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getRequest')
+                ->willReturn($this->requestMock);
         }
 
-        $this->eventMock = $this->getMockBuilder(PackageEvent::class)
-            ->onlyMethods(['getOperation', 'getComposer'])
-            ->disableOriginalConstructor()
-            ->getMock();
+
         $this->packageMock = $this->getMockBuilder(PackageInterface::class)
             ->onlyMethods(['getName', 'getFullPrettyVersion'])
             ->disableOriginalConstructor()
@@ -161,6 +209,11 @@ class PluginTest extends TestCase
         $this->repositoryMock2 = $this->getMockBuilder(ComposerRepository::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['findPackage', 'addPackage', 'getRepoConfig'])
+            ->getMock();
+
+        $this->ioMock = $this->getMockBuilder(NullIO::class)
+            ->onlyMethods(['writeError'])
+            ->disableOriginalConstructor()
             ->getMock();
 
         $this->composerMock->expects($this->any())
@@ -210,13 +263,43 @@ class PluginTest extends TestCase
             ->method('getFullPrettyVersion')
             ->willReturnOnConsecutiveCalls('1.0.1', '1.0.10');
 
+        $constraintMock = $this->getMockBuilder(Constraint::class)
+            ->onlyMethods(['getPrettyString'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $constraintMock->expects($this->any())
+            ->method('getPrettyString')
+            ->willReturn("1.0.5");
+
+        if ((int)explode('.', Composer::VERSION)[0] === 1) {
+            $this->requestMock->expects($this->any())
+                ->method('getJobs')
+                ->willReturn([
+                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => true, 'constraint' => $constraintMock]
+                ]);
+        } else {
+
+            $this->requestMock->expects($this->any())
+                ->method('getRequires')
+                ->willReturn([
+                    self::PACKAGE_NAME => $constraintMock
+                ]);
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getPackages')
+                ->willReturn([]);
+
+            $this->plugin->prePoolCreate($this->prePoolCreateMock);
+        }
+
         $this->assertNull($this->plugin->packageUpdate($this->eventMock));
     }
 
     /**
-     * Test invalid package install/update
+     * Test invalid package install/update that shows a warning to the user about their requires
      */
-    public function testInvalidPackageUpdate(): void
+    public function testInvalidPackageUpdateWithWarning(): void
     {
         $privateRepoUrl = 'https://example.org';
         $publicRepoVersion ='1.0.5';
@@ -238,12 +321,115 @@ class PluginTest extends TestCase
             ->method('getFullPrettyVersion')
             ->willReturnOnConsecutiveCalls($publicRepoVersion, $privateRepoVersion);
 
+        $constraintMock = $this->getMockBuilder(Constraint::class)
+            ->onlyMethods(['getPrettyString'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $constraintMock->expects($this->any())
+            ->method('getPrettyString')
+            ->willReturn("1.0.5");
+
+        $packageName = self::PACKAGE_NAME;
+        $exceptionMessage = "<warning>Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
+                             than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
+                             please investigate and update package requirement to match the version from the private repository</warning>";
+
+        if ((int)explode('.', Composer::VERSION)[0] === 1) {
+            $this->requestMock->expects($this->any())
+                ->method('getJobs')
+                ->willReturn([
+                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => true, 'constraint' => $constraintMock]
+                ]);
+        } else {
+
+            $this->requestMock->expects($this->any())
+                ->method('getRequires')
+                ->willReturn([
+                    self::PACKAGE_NAME => $constraintMock
+                ]);
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getPackages')
+                ->willReturn([]);
+
+            $this->plugin->prePoolCreate($this->prePoolCreateMock);
+        }
+
+        $this->ioMock->expects($this->once())
+            ->method('writeError')
+            ->with($this->stringContains($exceptionMessage));
+
+        $this->eventMock->expects($this->once())
+            ->method('getIO')
+            ->willReturn($this->ioMock);
+
+        $this->plugin->packageUpdate($this->eventMock);
+    }
+
+    /**
+     * Test invalid package install/update that should throw an exception
+     */
+    public function testInvalidPackageUpdateWithException(): void
+    {
+        $privateRepoUrl = 'https://example.org';
+        $publicRepoVersion ='1.0.5';
+        $privateRepoVersion = '1.0.1';
+
+        $this->repositoryMock1->expects($this->any())
+            ->method('getRepoConfig')
+            ->willReturn(['url' => 'https://repo.packagist.org']);
+
+        $this->repositoryMock2->expects($this->any())
+            ->method('getRepoConfig')
+            ->willReturn(['url' => $privateRepoUrl]);
+
+        $this->versionSelectorMock->expects($this->any())
+            ->method('findBestCandidate')
+            ->willReturn($this->packageMock);
+
+        $this->packageMock->expects($this->any())
+            ->method('getFullPrettyVersion')
+            ->willReturnOnConsecutiveCalls($publicRepoVersion, $privateRepoVersion);
+
+        $constraintMock = $this->getMockBuilder(Constraint::class)
+            ->onlyMethods(['getPrettyString'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $constraintMock->expects($this->any())
+            ->method('getPrettyString')
+            ->willReturn("1.0.*");
+
+        if ((int)explode('.', Composer::VERSION)[0] === 1) {
+            $this->requestMock->expects($this->any())
+                ->method('getJobs')
+                ->willReturn([
+                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => false, 'constraint' => $constraintMock]
+                ]);
+        } else {
+
+            $this->requestMock->expects($this->any())
+                ->method('getRequires')
+                ->willReturn([
+                    self::PACKAGE_NAME => $constraintMock
+                ]);
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getPackages')
+                ->willReturn([]);
+
+            $this->plugin->prePoolCreate($this->prePoolCreateMock);
+        }
+
         $packageName = self::PACKAGE_NAME;
         $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
                              than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
                              please investigate and update package requirement to match the version from the private repository";
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage(sprintf($exceptionMessage, self::PACKAGE_NAME));
+
         $this->plugin->packageUpdate($this->eventMock);
     }
+
 }
