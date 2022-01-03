@@ -32,7 +32,8 @@ class Version
      */
     public function findBestCandidate(Composer $composer, string $packageName, RepositoryInterface $repository): ?PackageInterface
     {
-        $composerMajorVersion = (int)explode('.', $composer::VERSION)[0];
+        $composerVersion = method_exists('Composer\Composer', 'getVersion') ? Composer::getVersion() : Composer::VERSION;
+        $composerMajorVersion = (int)explode('.', $composerVersion)[0];
 
         if ($composerMajorVersion === 1) {
             $bestCandidate = $this->findBestCandidateComposer1($composer, $packageName, $repository);
