@@ -217,6 +217,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         if(!$isPackageVBE) {
             foreach ($this->composer->getRepositoryManager()->getRepositories() as $repository) {
                 $found = $this->versionSelector->findBestCandidate($this->composer, $packageName, $repository);
+                $repoUrl = "";
                 /** @var RepositoryInterface $repository */
                 if ($repository instanceof ComposerRepository) {
                     $repoUrl = $repository->getRepoConfig()['url'];
@@ -225,7 +226,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
                     $repoUrl = $repository->getRepository()->getRepoConfig()['url'];
                 }
                 if ($found) {
-                    if (strpos($repoUrl, self::URL_REPO_PACKAGIST) !== false) {
+                    if ($repoUrl && strpos($repoUrl, self::URL_REPO_PACKAGIST) !== false) {
                         $publicRepoVersion = $found->getFullPrettyVersion();
                     } else {
                         $currentPrivateRepoVersion = $found->getFullPrettyVersion();
