@@ -432,4 +432,68 @@ class PluginTest extends TestCase
         $this->plugin->packageUpdate($this->eventMock);
     }
 
+    /**
+     * Test update unstable package from public repo that should throw an exception
+     */
+    public function testUpdateUnstablePackageWithException(): void
+    {
+        $privateRepoUrl = 'https://example.org';
+        $publicRepoVersion ='1.9.0-beta1';
+        $privateRepoVersion = '1.8.0';
+
+        $this->repositoryMock1->expects($this->any())
+            ->method('getRepoConfig')
+            ->willReturn(['url' => 'https://repo.packagist.org']);
+
+        $this->repositoryMock2->expects($this->any())
+            ->method('getRepoConfig')
+            ->willReturn(['url' => $privateRepoUrl]);
+
+        $this->packageMock->expects($this->any())
+            ->method('getFullPrettyVersion')
+            ->willReturnOnConsecutiveCalls($publicRepoVersion, $privateRepoVersion);
+
+        $constraintMock = $this->getMockBuilder(Constraint::class)
+            ->onlyMethods(['getPrettyString'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $constraintMock->expects($this->any())
+            ->method('getPrettyString')
+            ->willReturn("^1.9.0-beta1");
+
+        $this->versionSelectorMock->expects($this->any())
+            ->method('findBestCandidate')
+            ->willReturn($this->packageMock);
+
+        if ((int)explode('.', Composer::VERSION)[0] === 1) {
+            $this->requestMock->expects($this->any())
+                ->method('getJobs')
+                ->willReturn([
+                    ['packageName' => self::PACKAGE_NAME, 'cmd' => 'install', 'fixed' => false, 'constraint' => $constraintMock]
+                ]);
+        } else {
+
+            $this->requestMock->expects($this->any())
+                ->method('getRequires')
+                ->willReturn([
+                    self::PACKAGE_NAME => $constraintMock
+                ]);
+
+            $this->prePoolCreateMock->expects($this->any())
+                ->method('getPackages')
+                ->willReturn([]);
+
+            $this->plugin->prePoolCreate($this->prePoolCreateMock);
+        }
+
+        $packageName = self::PACKAGE_NAME;
+        $exceptionMessage = "Higher matching version {$publicRepoVersion} of {$packageName} was found in public repository packagist.org 
+                             than {$privateRepoVersion} in private {$privateRepoUrl}. Public package might've been taken over by a malicious entity, 
+                             please investigate and update package requirement to match the version from the private repository";
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage(sprintf($exceptionMessage, self::PACKAGE_NAME));
+
+        $this->plugin->packageUpdate($this->eventMock);
+    }
 }
