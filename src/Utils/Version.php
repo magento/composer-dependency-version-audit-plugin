@@ -69,7 +69,7 @@ class Version
         }
         $pool = new Pool($minStability, $stabilityFlags);
         $pool->addRepository($repository);
-        return (new VersionSelector($pool))->findBestCandidate($packageName, null, self::STABILITY_DEV);
+        return (new VersionSelector($pool))->findBestCandidate($packageName, null, null, self::STABILITY_DEV);
     }
 
     /**
