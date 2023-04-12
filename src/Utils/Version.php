@@ -20,6 +20,12 @@ use Exception;
  */
 class Version
 {
+    /**
+     * Preferred stability level
+     *
+     * @var string
+     */
+    public const STABILITY_DEV = 'dev';
 
     /**
      * Get Highest version package
@@ -63,7 +69,7 @@ class Version
         }
         $pool = new Pool($minStability, $stabilityFlags);
         $pool->addRepository($repository);
-        return (new VersionSelector($pool))->findBestCandidate($packageName);
+        return (new VersionSelector($pool))->findBestCandidate($packageName, null, null, self::STABILITY_DEV);
     }
 
     /**
@@ -85,6 +91,7 @@ class Version
 
         $repositorySet = new RepositorySet($minStability, $stabilityFlags);
         $repositorySet->addRepository($repository);
-       return (new VersionSelector($repositorySet))->findBestCandidate($packageName);
+
+        return (new VersionSelector($repositorySet))->findBestCandidate($packageName, null, self::STABILITY_DEV);
     }
 }
