@@ -46,7 +46,7 @@ class Version
             $bestCandidate = $this->findBestCandidateComposer2($composer, $packageName, $repository);
         }
 
-        if($bestCandidate instanceof PackageInterface){
+        if (isset($bestCandidate) && $bestCandidate instanceof PackageInterface) {
             return $bestCandidate;
         }
         return null;
