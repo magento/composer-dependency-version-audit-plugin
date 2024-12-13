@@ -68,7 +68,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * Initialize dependencies
      * @param Version|null $version
      */
-    public function __construct(Version $version = null)
+    public function __construct(?Version $version = null)
     {
         if ($version) {
             $this->versionSelector = $version;
